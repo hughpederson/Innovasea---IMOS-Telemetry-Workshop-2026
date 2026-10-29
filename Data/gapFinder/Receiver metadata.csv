@@ -1,0 +1,3 @@
+station_name,receiver_name,transmit_id,receiver_deployment_datetime,receiver_deployment_longitude,receiver_deployment_latitude,receiver_recovery_datetime,status,Comment,type
+MIL 10,VR2AR-549579,A69-1601-60008,2022-05-04 00:14:00,148.20847,-42.66467,2023-05-01 23:47:00,RECOVERED,,receiver
+RT2,VR2AR-549584,A69-1601-60013,2022-05-04 02:00:00,148.20985,-42.66711,2023-05-02 00:13:00,RECOVERED,,receiver

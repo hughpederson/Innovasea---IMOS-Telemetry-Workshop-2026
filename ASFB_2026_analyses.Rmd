@@ -7,8 +7,14 @@ output:
   html_document:
     toc: true
     toc_float: true
-    code_folding: show
+    code_folding: none
 ---
+
+
+```{r setup, include = FALSE}
+# Suppress package start-up messages and warnings in the rendered output
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
 
 <br>
 
@@ -17,39 +23,39 @@ output:
 ## Installing R packages
 
 You will need to install the following packages from CRAN:
-
 ```{r, eval = FALSE}
-install.packages(c("patchwork", "dplyr", "tidyr", "suncalc", "remotes", "tidyverse", 
-  "classInt"))
+install.packages(c("patchwork", "dplyr", "tidyr", "suncalc", "remotes",
+  "tidyverse", "classInt"))
 ```
-
+<br>
 And from GitHub:
 
-- gapFinder
+- **gapFinder**
 ```{r, eval = FALSE}
-remotes::install_github("IMOS-AnimalTracking/gapFinder", build_opts = c("--no-resave-data", "--no-manual"), build_vignettes = TRUE)
+remotes::install_github("IMOS-AnimalTracking/gapFinder",
+  build_opts = c("--no-resave-data", "--no-manual"),
+  build_vignettes = TRUE)
 ```
-- remora
+
+- **remora**
+
 ```{r, eval = FALSE}
-remotes::install_github('IMOS-AnimalTracking/remora', build_vignettes = TRUE, dependencies = TRUE)
+remotes::install_github("IMOS-AnimalTracking/remora",
+  build_vignettes = TRUE,
+  dependencies = TRUE)
 ```
 
 We will also need to set our working directory to the folder containing the workshop materials:
+
 ```{r}
 setwd("/Users/yuriniella/Documents/GitHub/IMOS ATF PROFILE/Innovasea---IMOS-Telemetry-Workshop-2026")
 
 options(width = 70) # Console width setting
 ```
 
----
+<br>
 
-
-
-
-
-
-
-# Analysis Session 1 
+# Analysis Session 1
 
 ## 1.1. Range Testing - RangeR package and DriftR app demo
 
@@ -59,7 +65,7 @@ Hugh...
 
 ## 1.2. Receiver performance and diagnostics - gapFinder package walkthrough
 
-### 1.2.1. Load packages
+### Load packages
 
 ```{r gapfinder-packages}
 library(FathomR)
@@ -70,64 +76,69 @@ library(tidyr)
 library(suncalc)
 ```
 
-### 1.2.2. Load packages
+### Load receiver logs
 
-#### Load receiver logs
+Load Fathom csv files exported from [Fathom Central](https://fathomcentral.com/learn) and stored on disk:
 
 ```{r gapfinder-load}
-fathom_dets <- parse_fathom_files('Data/gapFinder/Fathom',
-    output = 'list')
+fathom_dets <- parse_fathom_files("Data/gapFinder/Fathom",
+  output = "list")
 ```
 
-#### Match deployment metadata
+### Match deployment metadata
 
-Describe the metadata columns required...
+The raw receiver log files will need to be matched to receiver deployment metadata, so that gapFinder can assing them to the correct stations, and process only the data for when the receivers were in the water. 
 
-```{r, results='hide'}
+```{r, results = "hide"}
 dets_sort <- match_meta(input = fathom_dets,
   path_meta = "Data/gapFinder/Receiver metadata.csv",
   receiver_id = "receiver_name",
   transmitter_id = "transmit_id",
   type = "type",
   station_name = "station_name",
-  deploy_datetime = "receiver_deployment_datetime", 
+  deploy_datetime = "receiver_deployment_datetime",
   recover_datetime = "receiver_recovery_datetime",
   lat = "receiver_deployment_latitude",
   lon = "receiver_deployment_longitude",
   delay = "delay",
   tz = "UTC")
-
+```
+```{r, gapFinder-match_meta}
 names(dets_sort)
 ```
 
-#### Daily transmissions and detections
+### Daily transmissions and detections
+
+The first step in data analyses is to indentify how many range test transmissions could be successfuly detected (detection efficiency). This step can be done at both **daily** resolution, or separately for day/night periods (using ```circadian = TRUE```). There is no need to set timezones, gapFinder will automatically use your receiver deployment locations to figure it out.
 
 ```{r gapfinder-daily-dets}
-daily_dets <- get_daily_dets(input = dets_sort, 
-		circadian = TRUE,
-    path_meta = "Data/gapFinder/Receiver metadata.csv",
-    receiver_id = "receiver_name", 
-    transmitter_id = "transmit_id", 
-    delay = "delay",
-    station_name = "station_name", 
-    type = "type",
-    deploy_datetime = "receiver_deployment_datetime",  
-    recover_datetime = "receiver_recovery_datetime", 
-    lat = "receiver_deployment_latitude", 
-    lon = "receiver_deployment_longitude", 
-    tz = "UTC")
+daily_dets <- get_daily_dets(input = dets_sort,
+  circadian = TRUE,
+  path_meta = "Data/gapFinder/Receiver metadata.csv",
+  receiver_id = "receiver_name",
+  transmitter_id = "transmit_id",
+  delay = "delay",
+  station_name = "station_name",
+  type = "type",
+  deploy_datetime = "receiver_deployment_datetime",
+  recover_datetime = "receiver_recovery_datetime",
+  lat = "receiver_deployment_latitude",
+  lon = "receiver_deployment_longitude",
+  tz = "UTC")
 
 head(daily_dets)
 ```
 
-#### Estimating daily detection ranges
+#### Calculating daily detection ranges
 
-Calculate daily ranges...
+The next step will be to calculate the daily ranges for each station in the array. If you run ```get_daily_dets``` with ```circadian = TRUE```, the ranges will be automatically calculated separately for day/night periods. Otherwise, ranges will be calculated with daily resolution.
+
+The machine learning correction model will also be applied to all calculated ranges, if receiver diagnostic data is available (receiver was recovered). 
 
 ```{r gapfinder-daily-ranges}
-daily_ranges <- get_daily_ranges(input = daily_dets, 
-        diag_data = dets_sort, 
-        parallel = TRUE)
+daily_ranges <- get_daily_ranges(input = daily_dets,
+  diag_data = dets_sort,
+  parallel = TRUE)
 
 names(daily_ranges)
 daily_ranges$global # Global parameters
@@ -135,9 +146,9 @@ head(daily_ranges$ranges)
 head(daily_ranges$curves)
 ```
 
-Daily logistic curves...
+We can use the $ranges and $curves objects to reconstruct the daily range curves for each day (and circadian period) of data available.
 
-```{r gapfinder-curves, fig.height=12}
+```{r gapfinder-curves, fig.height = 12}
 dates <- seq(as.Date("2022-12-29", tz = "UTC"),
   as.Date("2023-01-02", tz = "UTC"),
   1)
@@ -146,46 +157,43 @@ dates
 
 for (i in 1:length(dates)) {
   aux_plot <- ggplot() + theme_bw() +
-    geom_line(data = subset(daily_ranges$curves, 
-      station_name == "MIL 10" &
-      date == dates[i]),
-        aes(x = x, 
-          y = p),
-         linewidth = 1, 
-         colour = 'dodgerblue') +
+    geom_line(data = subset(daily_ranges$curves,
+        station_name == "MIL 10" &
+        date == dates[i]),
+      aes(x = x, y = p),
+      linewidth = 1,
+      colour = "dodgerblue") +
     geom_point(data = subset(daily_ranges$ranges,
-      station_name == "MIL 10" &
-      date == dates[i]),
-        aes(x = max_distance_detected, 
-          y = daily_efficiency),
-        size = 3
-      ) +
-    geom_hline(yintercept = 0.5, lty = 'dashed') +
+        station_name == "MIL 10" &
+        date == dates[i]),
+      aes(x = max_distance_detected, y = daily_efficiency),
+      size = 3) +
+    geom_hline(yintercept = 0.5, lty = "dashed") +
     labs(x = "Distance (m)", y = "Detection prob (%)",
       title = paste("Date:", dates[i])) +
-      facet_wrap(~circadian)
-    # Combine plots
-    if (i == 1) {
-      plot_curve <- aux_plot
-    } else {
-      plot_curve <- plot_curve / aux_plot
-    }
+    facet_wrap(~circadian)
+
+  # Combine plots
+  if (i == 1) {
+    plot_curve <- aux_plot
+  } else {
+    plot_curve <- plot_curve / aux_plot
+  }
 }
 
 plot_curve
 ```
 
-Diagnostics table
+gapFinder also has a **range diagnostics** function, that returns several summary statistics of range for each station (and circadian period).
 
 ```{r gapfinder-diagnostics}
-diag_ranges <- range_diag(input = daily_ranges, 
-    station_order = c("MIL 10"))
+diag_ranges <- range_diag(input = daily_ranges,
+  station_order = c("MIL 10"))
+
 as.data.frame(diag_ranges)
 ```
 
-Plot daily ranges:
-
-Describe the difference between raw and corrected ranges...
+We can use $ranges to plot the range timeseries (range = modelled range; cor_range = machine learning corrected ranges) for each station.
 
 ```{r gapfinder-ranges-plot}
 ranges_long <- daily_ranges$ranges %>%
@@ -197,66 +205,53 @@ ranges_long <- daily_ranges$ranges %>%
 
 plot_ranges1 <- ggplot(ranges_long) +
   theme_bw() +
-  geom_line(
-    aes(
-      x = date,
-      y = range_value,
-      colour = range_type
-    )
-  ) +
+  geom_line(aes(x = date, y = range_value, colour = range_type)) +
   facet_wrap(~circadian, nrow = 2) +
-  labs(
-    x = "Date",
-    y = "Range (m)",
-    colour = "",
-    title = "MIL 10 daily ranges"
-  )
+  labs(x = "Date", y = "Range (m)", colour = "",
+    title = "MIL 10 daily ranges")
 
 plot_ranges2 <- ggplot(ranges_long) +
   theme_bw() +
-  geom_boxplot(
-    aes(
-      x = circadian, 
-      y = range_value, 
-      group = interaction(circadian, range_type),
-      colour = range_type
-    )
-  ) +
-  labs(
-    x = "",
-    y = "Range (m)",
-    colour = ""
-  )
+  geom_boxplot(aes(x = circadian,
+    y = range_value,
+    group = interaction(circadian, range_type),
+    colour = range_type)) +
+  labs(x = "", y = "Range (m)", colour = "")
 
-plot_ranges <- (plot_ranges1 | plot_ranges2) + plot_layout(guides = 'collect')
+plot_ranges <- (plot_ranges1 | plot_ranges2) + plot_layout(guides = "collect")
 
 plot_ranges
 ```
 
 #### Environmental drivers of detection range
 
-Add circadian periods to diagnostic data:
+First we need to add circadian periods to the diagnostic data (OBS: to be added as a function in the package in the next update).
 
-Describe how day/night is defined (nautical dawn and dusk) and why local time is used...
+gapFinder defines day/night periods using **nautical dawn** and **nautical dusk** as the periods of reference. 
 
 ```{r gapfinder-circadian}
 lat <- dets_sort$diag$receiver_deployment_latitude[1]
+
+lat 
+
 lon <- dets_sort$diag$receiver_deployment_longitude[1]
+
+lon 
 
 # Parse timestamps in UTC, then derive the local time and local date
 dets_sort$diag <- dets_sort$diag %>%
   mutate(
     local_time = with_tz(Time, "Australia/Hobart"),
-    date       = as.Date(local_time)   # local calendar date, used for the join
+    date = as.Date(local_time) # local calendar date, used for the join
   )
 
 # Sunrise and sunset for each local date at receiver deployment
 sun <- getSunlightTimes(
   date = unique(dets_sort$diag$date),
-  lat  = lat,
-  lon  = lon,
+  lat = lat,
+  lon = lon,
   keep = c("nauticalDawn", "nauticalDusk"),
-  tz   = "Australia/Hobart"
+  tz = "Australia/Hobart"
 )
 
 # Assign day/night categories
@@ -278,46 +273,39 @@ table(dets_sort$diag$circadian, useNA = "ifany")
 
 Plot diagnostic data and daily ranges:
 
-```{r gapfinder-diag-plots, fig.height=10, fig.width=10}
-plot_eff <- ggplot() + theme_bw() + 
+```{r gapfinder-diag-plots, fig.height = 10, fig.width = 10}
+plot_eff <- ggplot() + theme_bw() +
   geom_line(data = daily_ranges$ranges,
     aes(x = date, y = daily_efficiency)) +
   labs(x = "Date", y = "Efficiency (%)") +
   facet_wrap(~circadian, nrow = 2)
 
-plot_temp <- ggplot() + theme_bw() + 
-	geom_line(data = dets_sort$diag,
-		aes(x = Time, y = as.numeric(`Ambient Temperature (deg C)`))) +
-	labs(x = "Date", y = "Temperature (°C)") +
+plot_temp <- ggplot() + theme_bw() +
+  geom_line(data = dets_sort$diag,
+    aes(x = Time, y = as.numeric(`Ambient Temperature (deg C)`))) +
+  labs(x = "Date", y = "Temperature (°C)") +
   facet_wrap(~circadian, nrow = 2)
 
-plot_noise <- ggplot() + theme_bw() + 
-	geom_line(data = dets_sort$diag,
-		aes(x = Time, y = as.numeric(`Noise Mean (mV)`))) +
-	labs(x = "Date", y = "Noise (mV)") +
+plot_noise <- ggplot() + theme_bw() +
+  geom_line(data = dets_sort$diag,
+    aes(x = Time, y = as.numeric(`Noise Mean (mV)`))) +
+  labs(x = "Date", y = "Noise (mV)") +
   facet_wrap(~circadian, nrow = 2)
 
 plot_diag <- plot_eff | plot_temp | plot_noise
 ```
 
-```{r gapfinder-combined, fig.height=10, fig.width=12}
+```{r gapfinder-combined, fig.height = 10, fig.width = 12}
 plot_ranges / plot_diag
 ```
 
----
-
-
 # Analysis Session 2
 
-## 2.1. Quality control and visualising raw detection data 
+## 2.1. Quality control and visualising raw detection data
 
 Live coding!
 
-
-## Home range analysis and habitat associations
-
-
-## 
+## 2.2. Home range analysis and habitat associations
 
 # Conclusions
 
@@ -334,5 +322,7 @@ Add key take-home messages...
 sessionInfo()
 ```
 
-
+<!--
+To render this document, run in the console:
 rmarkdown::render("ASFB_2026_analyses.Rmd", output_format = "html_document")
+-->

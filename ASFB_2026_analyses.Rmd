@@ -372,7 +372,15 @@ fathom_dets <- parse_fathom_files("Data/gapFinder/Fathom",
 
 The raw receiver log files will need to be matched to receiver deployment metadata, so that gapFinder can assing them to the correct stations, and process only the data for when the receivers were in the water. 
 
+```{r gapfinder-metadata}
+# Example metadata file
+meta_file <- read.csv("Data/gapFinder/Receiver metadata.csv")
+
+meta_file
+
+```
 ```{r, results = "hide"}
+# Match metadata and Fathom files
 dets_sort <- match_meta(input = fathom_dets,
   path_meta = "Data/gapFinder/Receiver metadata.csv",
   receiver_id = "receiver_name",
@@ -383,11 +391,16 @@ dets_sort <- match_meta(input = fathom_dets,
   recover_datetime = "receiver_recovery_datetime",
   lat = "receiver_deployment_latitude",
   lon = "receiver_deployment_longitude",
-  delay = "delay",
   tz = "UTC")
 ```
 ```{r, gapFinder-match_meta}
 names(dets_sort)
+
+# Detections
+head(as.data.frame(dets_sort$det))
+
+# Diagnostic
+head(as.data.frame(dets_sort$diag))
 ```
 
 ### Daily transmissions and detections
@@ -395,12 +408,12 @@ names(dets_sort)
 The first step in data analyses is to indentify how many range test transmissions could be successfuly detected (detection efficiency). This step can be done at both **daily** resolution, or separately for day/night periods (using ```circadian = TRUE```). There is no need to set timezones, gapFinder will automatically use your receiver deployment locations to figure it out.
 
 ```{r gapfinder-daily-dets}
+# Calculate daily detections
 daily_dets <- get_daily_dets(input = dets_sort,
   circadian = TRUE,
   path_meta = "Data/gapFinder/Receiver metadata.csv",
   receiver_id = "receiver_name",
   transmitter_id = "transmit_id",
-  delay = "delay",
   station_name = "station_name",
   type = "type",
   deploy_datetime = "receiver_deployment_datetime",
@@ -512,7 +525,10 @@ First we need to add circadian periods to the diagnostic data (OBS: to be added 
 
 gapFinder defines day/night periods using **nautical dawn** and **nautical dusk** as the periods of reference. 
 
+First, lets use a single location reference point:
+
 ```{r gapfinder-circadian}
+
 lat <- dets_sort$diag$receiver_deployment_latitude[1]
 
 lat 
@@ -536,6 +552,8 @@ sun <- getSunlightTimes(
   keep = c("nauticalDawn", "nauticalDusk"),
   tz = "Australia/Hobart"
 )
+
+head(sun)
 
 # Assign day/night categories
 dets_sort$diag <- dets_sort$diag %>%
@@ -590,13 +608,12 @@ Live coding!
 
 ## 2.2. Home range analysis and habitat associations
 
-# Conclusions
-
-Add key take-home messages...
+Live coding!
 
 # References
 
-- Williamson et al. (2021) (add full details)
+- Williamson, M.J. et al. 2021. Analysing detection gaps in acoustic telemetry data to infer differential movement patterns in fish. Ecology and Evolution, pp. 1–14. doi: 10.1002/ece3.7226.
+
 - Add further references...
 
 # Session info

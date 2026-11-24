@@ -30,6 +30,23 @@ install.packages(c("patchwork", "dplyr", "tidyr", "suncalc", "remotes",
 <br>
 And from GitHub:
 
+- **FathomR**
+```{r, eval = FALSE}
+
+remotes::install_github("Fish-Tracking-Data-Team/FathomR",
+  build_vignettes = TRUE,
+  dependencies = TRUE)
+
+```
+
+- **RangeR**
+```{r, eval = FALSE}
+
+remotes::install_github("Fish-Tracking-Data-Team/RangeR", 
+                        build_vignettes = TRUE,
+                        dependencies = TRUE)
+```
+
 - **gapFinder**
 ```{r, eval = FALSE}
 remotes::install_github("IMOS-AnimalTracking/gapFinder",
@@ -45,11 +62,9 @@ remotes::install_github("IMOS-AnimalTracking/remora",
   dependencies = TRUE)
 ```
 
-We will also need to set our working directory to the folder containing the workshop materials:
+For interactive use, set your working directory to the folder containing the workshop materials. When rendering, R Markdown uses the directory containing this document:
 
 ```{r}
-setwd("/Users/yuriniella/Documents/GitHub/IMOS ATF PROFILE/Innovasea---IMOS-Telemetry-Workshop-2026")
-
 options(width = 70) # Console width setting
 ```
 
@@ -57,13 +72,281 @@ options(width = 70) # Console width setting
 
 # Analysis Session 1
 
-## 1.1. Range Testing - RangeR package and DriftR app demo
+## 1.1 FathomR - Rapid Ingestion of Fathom csv files into R
 
-Hugh...
+### 1.1.1 Load the FathomR package
+```{r FathomR-package}
+
+library(FathomR)
+library(dplyr)
+
+```
+
+### 1.1.2 Inspect logfile metadata and schema
+
+```{r FathomR-logfiles}
+
+# inspect logfile metadata  
+log.file.details <- inspect_receiver_log_index(
+  directory_path = './Data/FathomR/'
+)
+
+fathom.schema <- peek_fathom_schema(
+  directory_path = './Data/FathomR/'
+)
+
+```
+
+### 1.1.3 Ingest logfiles 
+
+```{r FathomR-ingest}
+
+# ingest fathom logfiles into a list object
+data <- parse_fathom_files(
+  './Data/FathomR/', output = 'list'
+)
+
+
+# alternatively, ingest fathom logfiles into individual tibbles
+parse_fathom_files(
+        './Data/FathomR/', output = 'env',
+        as_tibble = TRUE
+)
+
+```
+
+### 1.1.4 Leveraging FathomR data structure
+
+```{r FathomR-datastructures}
+
+# Removing receiver self-transmitter detections
+
+self.transmit.ids <- cfg_transmitter$`Full ID`
+
+# isolate animal detections
+
+animal.dets <- det %>%
+    filter(!`Full ID` %in% self.transmit.ids)
+
+```
+
+
+## 1.2. Range Testing - Drift Range Test (RangeR package and DriftR app demo)
+
+### 1.2.1 Load required packages
+```{r ranger-packages}
+
+library(FathomR)
+library(RangeR)
+
+```
+
+### 1.2.2 Load Receiver Logfiles
+
+Parse the receiver logfiles into a list object containing the detections and diagnostics needed for the workflow.
+
+```{r drift-logfiles}
+
+data <- FathomR::parse_fathom_files(
+  "./Data/range_test/drift_test/logfiles",
+  output = "list"
+)
+
+```
+
+### 1.2.3 Define Transmission Source
+
+Set the transmission source for the workflow.
+
+```{r drift-trans-source}
+transmission_source <- "VR100"
+```
+
+### 1.2.4 Define Station Metadata
+
+Station metadata can be created in place or read from a file. resolve_station_location() standardises the input and returns the selected station row together with a station_location vector that can be passed into downstream RangeR functions. 
+
+```{r drift-station-metadata}
+stations <- data.frame(
+  latitude = c(-42.6665),
+  longitude = c(147.9767),
+  Serial = c(548851)
+)
+
+stations <- resolve_station_location(
+  stations = stations,
+  station_row = NULL
+)
+
+```
+
+If you have multiple stations, either set station_row explicitly or leave it as NULL in an interactive session to choose a row.
+
+### 1.2.5 Select Transmitters and Devices
+
+``` {r drift-devices}
+
+det <- data$det # create a data from of detections 
+
+transmitters <- select_range_transmitter(
+  det = det,
+  transmission_source = transmission_source
+)
+
+devices <- select_devices(
+  det = det,
+  transmission_source = transmission_source
+)
+
+```
+
+### 1.2.6 Qualify Receiver Receiver Diagnostics 
+
+``` {r drift-diagnostics}
+
+diag <- data$diag
+
+deployment_times <- get_deployment_time(
+  diag_fast = diag,
+  min_tilt = 0,
+  max_tilt = 60,
+  n = 5
+)
+
+plot_deployment_windows(
+  diag_data = diag,
+  deployment_time_result = deployment_times
+)
+
+# Optional: manual modification of deployment times
+# deployment_times$maxTime <- deployment_times$maxTime + 86400
+
+```
+
+### 1.2.7 Run Drift Range Analysis 
+
+``` {r drift-analysis}
+
+range_est <- run_drift_range_analysis(
+  det = det,
+  start_time = deployment_times$minTime,
+  end_time = deployment_times$maxTime,
+  devices = devices,
+  transmitter_ids = transmitters,
+  station_location = stations$station_location,
+  transmission_source = transmission_source,
+  synthetic_transmit_data = NULL,
+  time_buffer = 5,
+  dist_threshold = 1200,
+  prediction_distance_max = 800
+)
+
+```
+
+### 1.2.8 Plot Results  
+
+``` {r drift-plots}
+
+plot_drift_results(
+  range_est,
+  title = if (length(transmitters) == 1) {
+    paste0("Detection curve for ", transmitters)
+  } else {
+    "Detection curves"
+  },
+  subtitle = paste("Transmitters:", paste(transmitters, collapse = ", ")),
+  x_limits = c(0, 1200),
+  x_breaks = seq(0, 1200, 100)
+)
+
+```
 
 <br>
 
-## 1.2. Receiver performance and diagnostics - gapFinder package walkthrough
+## 1.3 Static Range Test
+
+### 1.3.1 Load required packages
+```{r static-packages}
+
+library(FathomR)
+library(RangeR)
+library(padr)
+library(data.table)
+library(tibble)
+library(gridExtra)
+
+```
+
+### 1.3.2 Identify stations
+
+``` {r static-stations}
+# load station metdata
+stations <- readr::read_csv('./Data/range_test/static_test/metadata/deployment_metadata.csv')
+
+# standardise stations dataframe
+receiver_prep <- RangeR::prepare_distance_df(stations, lat_col = 'latitude',
+                                            long_col = 'longitude', station_col = 'Station', 
+                                            serial_col = 'Serial')
+
+                                  
+# Load receiver logfiles 
+data <- parse_fathom_files('./Data/range_test/static_test/logfiles') # parse fathom interleaved csv
+
+```
+
+### 1.3.3 Calculate distances between stations
+
+``` {r static-distances}
+
+# calculate distances between the reference and all other stations
+distance_df <- RangeR::receiver_separations(receiver_prep, reference_station = c('RT2'))
+
+```
+
+### 1.3.4 Identify Deployment Times
+
+```{r static-deployment}
+
+# computet the deployment times using receiver diagnostics 
+deployment_times <- get_deployment_time(data$diag, min_tilt = 6, max_tilt = 40, 5)
+
+
+# check deployment duration 
+as.numeric(deployment_times$maxTime - deployment_times$minTime)
+
+# plot receiver diagnostics (tilt and noise)
+plot_deployment_windows(data$diag, deployment_times, diagnostic = 'both')
+
+```
+
+### 1.3.5 Extract range transmitter ID
+
+``` {r static-transmitter}
+
+# extract the transmitter programming of the reference station
+transmitters <- transmitter_config(data$cfg_transmitter, distance_df)
+
+```
+
+
+### 1.3.6 Calculate receiver detection range
+
+``` {r static-range}
+
+range <- calculate_range(data$det, transmitters,
+                        distance_df, 
+                        deployment_times$minTime,
+                        deployment_times$maxTime, 
+                        nom_delay = transmitters$nom_delay,
+                        prediction_distance_max = 1500)
+
+```
+
+
+<br>
+
+
+## 1.4. Receiver performance and diagnostics - gapFinder package walkthrough
 
 ### Load packages
 
@@ -274,7 +557,7 @@ table(dets_sort$diag$circadian, useNA = "ifany")
 Plot diagnostic data and daily ranges:
 
 ```{r gapfinder-diag-plots, fig.height = 10, fig.width = 10}
-plot_eff <- ggplot() + theme_bw() +
+plot_eff <- ggplot() + theme_bw() + 
   geom_line(data = daily_ranges$ranges,
     aes(x = date, y = daily_efficiency)) +
   labs(x = "Date", y = "Efficiency (%)") +

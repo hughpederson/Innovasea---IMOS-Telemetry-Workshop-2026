@@ -22,19 +22,11 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 
 ## Installing R packages
 
-RangeR (range testing) and ranger (gapFinder's machine-learning engine) are different packages whose names differ only by capitalization. To keep both on case-insensitive filesystems, use a separate project library for ranger:
-
-```{r workshop-library}
-workshop_lib <- file.path(".R-library")
-dir.create(workshop_lib, showWarnings = FALSE, recursive = TRUE)
-.libPaths(c(.libPaths(), normalizePath(workshop_lib)))
-```
-
 You will need to install the following packages from CRAN:
 ```{r, eval = FALSE}
 install.packages(c("patchwork", "dplyr", "tidyr", "suncalc", "remotes",
-  "tidyverse", "classInt"))
-install.packages("ranger", lib = workshop_lib)
+  "tidyverse", "classInt", "data.table", "ctmm", "sp", "sf", "leaflet", "htmlwidgets))
+
 ```
 <br>
 And from GitHub:
@@ -81,291 +73,21 @@ options(width = 70) # Console width setting
 
 # Analysis Session 1
 
-## 1.1 FathomR - Rapid Ingestion of Fathom csv files into R
+## 1.1 FathomR Interactive Session
 
-### 1.1.1 Load the FathomR package
-```{r FathomR-package}
-
-library(FathomR)
-library(dplyr)
-
-```
-
-### 1.1.2 Inspect logfile metadata and schema
-
-```{r FathomR-logfiles}
-
-# inspect logfile metadata
-log.file.details <- inspect_receiver_log_index(
-  directory_path = './Data/FathomR/'
-)
-
-fathom.schema <- peek_fathom_schema(
-  directory_path = './Data/FathomR/'
-)
-
-```
-
-### 1.1.3 Ingest logfiles
-
-```{r FathomR-ingest}
-
-# ingest fathom logfiles into a list object
-data <- parse_fathom_files(
-  './Data/FathomR/', output = 'list'
-)
-
-
-# alternatively, ingest fathom logfiles into individual tibbles
-parse_fathom_files(
-        './Data/FathomR/', output = 'env',
-        as_tibble = TRUE
-)
-
-```
-
-### 1.1.4 Leveraging FathomR data structure
-
-```{r FathomR-datastructures}
-
-# Removing receiver self-transmitter detections
-
-self.transmit.ids <- cfg_transmitter$`Full ID`
-
-# isolate animal detections
-
-animal.dets <- det %>%
-    filter(!`Full ID` %in% self.transmit.ids)
-
-```
-
+Live Coding Session 
 
 ## 1.2. Range Testing - Drift Range Test (RangeR package and DriftR app demo)
 
-### 1.2.1 Load required packages
-```{r ranger-packages}
-
-library(FathomR)
-library(RangeR)
-
-```
-
-### 1.2.2 Load Receiver Logfiles
-
-Parse the receiver logfiles into a list object containing the detections and diagnostics needed for the workflow.
-
-```{r drift-logfiles}
-
-data <- FathomR::parse_fathom_files(
-  "./Data/range_test/drift_test/logfiles",
-  output = "list"
-)
-
-```
-
-### 1.2.3 Define Transmission Source
-
-Set the transmission source for the workflow.
-
-```{r drift-trans-source}
-transmission_source <- "VR100"
-```
-
-### 1.2.4 Define Station Metadata
-
-Station metadata can be created in place or read from a file. resolve_station_location() standardises the input and returns the selected station row together with a station_location vector that can be passed into downstream RangeR functions.
-
-```{r drift-station-metadata}
-stations <- data.frame(
-  latitude = c(-42.6665),
-  longitude = c(147.9767),
-  Serial = c(548851)
-)
-
-stations <- resolve_station_location(
-  stations = stations,
-  station_row = NULL
-)
-
-```
-
-If you have multiple stations, either set station_row explicitly or leave it as NULL in an interactive session to choose a row.
-
-### 1.2.5 Select Transmitters and Devices
-
-The bundled drift test uses two range-test transmitters, receiver 548851, and VR100 12254. Set these explicitly so the document can render without console input.
-
-``` {r drift-devices}
-
-det <- data$det # create a data frame of detections
-
-transmitters <- c("A69-1602-62107", "A69-1602-62108")
-
-devices <- list(receiver_serial = 548851, VR100_serial = 12254)
-
-```
-
-For other datasets, run these selectors interactively to choose transmitters and devices:
-
-```{r drift-interactive-selection, eval = FALSE}
-
-transmitters <- select_range_transmitter(
-  det = det,
-  transmission_source = transmission_source
-)
-
-devices <- select_devices(
-  det = det,
-  transmission_source = transmission_source
-)
-
-```
-
-### 1.2.6 Qualify Receiver Receiver Diagnostics
-
-``` {r drift-diagnostics}
-
-diag <- data$diag
-
-deployment_times <- get_deployment_time(
-  diag_fast = diag,
-  min_tilt = 0,
-  max_tilt = 60,
-  n = 5
-)
-
-plot_deployment_windows(
-  diag_data = diag,
-  deployment_time_result = deployment_times
-)
-
-# Optional: manual modification of deployment times
-# deployment_times$maxTime <- deployment_times$maxTime + 86400
-
-```
-
-### 1.2.7 Run Drift Range Analysis
-
-``` {r drift-analysis}
-
-range_est <- run_drift_range_analysis(
-  det = det,
-  start_time = deployment_times$minTime,
-  end_time = deployment_times$maxTime,
-  devices = devices,
-  transmitter_ids = transmitters,
-  station_location = stations$station_location,
-  transmission_source = transmission_source,
-  synthetic_transmit_data = NULL,
-  time_buffer = 5,
-  dist_threshold = 1200,
-  prediction_distance_max = 1200
-)
-
-```
-
-### 1.2.8 Plot Results
-
-``` {r drift-plots}
-
-plot_drift_results(
-  range_est,
-  title = if (length(transmitters) == 1) {
-    paste0("Detection curve for ", transmitters)
-  } else {
-    "Detection curves"
-  },
-  subtitle = paste("Transmitters:", paste(transmitters, collapse = ", ")),
-  x_limits = c(0, 1200),
-  x_breaks = seq(0, 1200, 100)
-)
-
-```
+Live Coding Session 
 
 <br>
 
 ## 1.3 Static Range Test
 
-### 1.3.1 Load required packages
-```{r static-packages}
-
-library(FathomR)
-library(RangeR)
-library(padr)
-library(data.table)
-library(tibble)
-library(gridExtra)
-
-```
-
-### 1.3.2 Identify stations
-
-``` {r static-stations}
-# load station metdata
-stations <- readr::read_csv('./Data/range_test/static_test/metadata/deployment_metadata.csv')
-
-# standardise stations dataframe
-receiver_prep <- RangeR::prepare_distance_df(stations, lat_col = 'latitude',
-                                            long_col = 'longitude', station_col = 'Station',
-                                            serial_col = 'Serial')
-
-
-# Load receiver logfiles
-data <- parse_fathom_files('./Data/range_test/static_test/logfiles') # parse fathom interleaved csv
-
-```
-
-### 1.3.3 Calculate distances between stations
-
-``` {r static-distances}
-
-# calculate distances between the reference and all other stations
-distance_df <- RangeR::receiver_separations(receiver_prep, reference_station = c('RT2'))
-
-```
-
-### 1.3.4 Identify Deployment Times
-
-```{r static-deployment}
-
-# computet the deployment times using receiver diagnostics
-deployment_times <- get_deployment_time(data$diag, min_tilt = 6, max_tilt = 40, 5)
-
-
-# check deployment duration
-as.numeric(deployment_times$maxTime - deployment_times$minTime)
-
-# plot receiver diagnostics (tilt and noise)
-plot_deployment_windows(data$diag, deployment_times, diagnostic = 'both')
-
-```
-
-### 1.3.5 Extract range transmitter ID
-
-``` {r static-transmitter}
-
-# extract the transmitter programming of the reference station
-transmitters <- transmitter_config(data$cfg_transmitter, distance_df)
-
-```
-
-
-### 1.3.6 Calculate receiver detection range
-
-``` {r static-range}
-
-range <- calculate_range(data$det, transmitters,
-                        distance_df,
-                        deployment_times$minTime,
-                        deployment_times$maxTime,
-                        nom_delay = transmitters$nom_delay,
-                        prediction_distance_max = 1500)
-
-```
-
-
 <br>
 
+Live Coding Session
 
 ## 1.4. Receiver performance and diagnostics - gapFinder package walkthrough
 
@@ -629,13 +351,332 @@ Live coding!
 
 ## 2.2. Home range analysis and habitat associations
 
-Live coding!
+### 2.2.1 Load packages and sample positions 
+```{r, home_range_packages}
+
+# - continuous time movement modeling (CTMM) from fine-scale positioning data 
+# - The workflow below covers the quantitative assessment of range residency 
+#   and area utilisation while taking into account autocorrelation structures in tracking data. 
+# - If estimates of positional error are available, CTMM can incorporate uncertainty when calculating space use. 
+# - CTMM can handle irregular sampling intervals.
+
+
+# 1. Load packages and example data 
+library(ctmm)
+library(sf)
+library(sp)
+
+# Example positional data from two fish
+fish_61043 <- read.csv("Data/home_range/BT61043_great_lake_position_data.csv")
+fish_61065 <- read.csv("Data/home_range/BT61065_great_lake_position_data.csv")
+
+
+```
+
+### 2.2.2 Examine animals positions 
+
+```{r, home_range_tracks}
+# When enabled, ctmm imports HPE as HDOP (relative horizontal error).
+# HPE is a unitless measure of sensitivity to positioning error
+
+use_hpe <- FALSE
+
+tracks <- list(fish_61043 = fish_61043, fish_61065 = fish_61065)
+for (id in names(tracks)) {
+  fixes <- tracks[[id]][, c("Time", "Longitude", "Latitude")]
+  if (use_hpe) {
+    fixes$HPE <- tracks[[id]]$HPE
+    stopifnot(all(is.finite(fixes$HPE)), all(fixes$HPE > 0))
+  }
+  fixes <- fixes[complete.cases(fixes), ]
+  fixes <- unique(fixes[order(fixes$Time), ])
+  fixes$individual.local.identifier <- id
+  tracks[[id]] <- as.telemetry(fixes, timeformat = "%Y-%m-%d %H:%M:%OS",
+                              timezone = "UTC")
+}
+
+# Put both fish in the same coordinate system BEFORE fitting their models.
+projection(tracks) <- projection(tracks[[1]])
+
+# 2. Inspect the tracks ----------------------------------------------------
+
+plot(tracks, col = c("steelblue", "tomato"), error = FALSE,
+     main = "Great Lake fish tracks", cex = 1.5)
+legend("topright", legend = names(tracks),
+       col = c("steelblue", "tomato"), pch = 16, bty = "n")
+
+```
+
+### 2.2.3 Construct Variograms and model fitting
+```{r, home_range_variograms}
+# 3. Explore autocorrelation and select movement models --------------------
+# A variogram shows how displacement changes with time lag. A plateau can
+# support a bounded home range; inspect the curve before interpreting AKDE.
+# IID: independent positions; OU: correlated positions;
+# OUF: correlated positions and velocities. Anisotropic = direction-dependent.
+
+# With use_hpe = TRUE, include error whose size is proportional to HPE.
+# With no stationary-tag calibration supplied, estimate the scale together
+# with movement. error = 1 is a starting guess, NOT a fixed 1-metre error.
+
+# FALSE: faster computation without location-error fitting.
+# TRUE: include HPE in home range estimation (much slower).
+
+# Calibration data are preferable: simultaneous fitting can confound movement
+# and location error. See vignette("error") for the calibrated approach.
+# With use_hpe = FALSE, the model does not account for location error.
+variograms <- list()
+candidate_models <- list()
+models <- list()
+
+# check the number of CPU cores available for calculation
+
+parallel::detectCores()
+
+##### THE FOLLOWING SECTION IS SLOW
+
+# This is the slowest step; fitting location error can take several minutes
+# per fish. trace = TRUE prints progress as candidate models are fitted.
+# for (id in names(tracks)) {
+#   message("Fitting ", id, if (use_hpe) " with HPE" else " without HPE")
+#   variograms[[id]] <- variogram(tracks[[id]])
+#   plot(variograms[[id]], main = paste(id, "empirical variogram"))
+#   guess <- ctmm.guess(tracks[[id]],
+#                       CTMM = ctmm(error = if (use_hpe) 1 else FALSE),
+#                       variogram = variograms[[id]],
+#                       interactive = FALSE)
+#   candidate_models[[id]] <- ctmm.select(tracks[[id]], guess,
+#                                         verbose = TRUE, trace = TRUE, cores = 14) #ctmm.select will select the optimal model basesd on AIC
+  
+#   models[[id]] <- candidate_models[[id]][[1]]
+#   print(summary(candidate_models[[id]]))
+#   print(summary(models[[id]]))
+
+#   plot(variograms[[id]], CTMM = models[[id]], main = paste(id, "model fit"))
+#   # Lag limits are in seconds, even if the displayed axis uses hours.
+#   plot(variograms[[id]], CTMM = models[[id]], xlim = c(0, 6 * 60 * 60), # short temporal variogram 
+#        main = paste(id, "first 6 hours"))
+# }
+```
+
+```{r home_range_variogram plots}
+
+### TO SAVE TIME, WE ARE LOADING OUTPUTS FROM A PREVIOUS RUN
+# to save time, let's load previous model run
+great_lake <- readRDS('outputs/ctmm_example/great_lake_analysis.rds')
+
+variograms <- great_lake$variograms
+models <- great_lake$models
+
+for (id in names(great_lake$tracks)) {
+  plot(variograms[[id]], CTMM = models[[id]], main = paste(id, "model fit"))
+  # Lag limits are in seconds, even if the displayed axis uses hours.
+  plot(variograms[[id]], CTMM = models[[id]], xlim = c(0, 6 * 60 * 60), # short temporal variogram 
+       main = paste(id, "first 6 hours"))
+
+}
+```
+
+
+
+### 2.2.4 Calculate AKDE space use areas 
+
+```{r, home_range_AKDE}
+# 4. Estimate home ranges within the lake ----------------------------------
+
+# AKDE utilisations can be constrained using hard boundaries such a river banks, coastlines or lake shorelines 
+# load the hard boundary of the lake shoreline, projection is WGS84
+
+lake <- st_read("Data/home_range/great_lake_hard_boundary_wgs84.shp",
+                quiet = TRUE)
+lake <- st_transform(lake, st_crs(ctmm::as.sf(tracks[[1]])))
+lake_boundary <- as(lake, "Spatial")
+
+# AKDE = autocorrelated kernel density estimation.
+# A UD (utilization distribution) describes estimated long-term space use.
+# SP.in = TRUE restricts space use to the hard boundary polygon.
+# Fit both UDs together so they share the grid needed for overlap analysis.
+
+home_ranges <- akde(tracks, models, SP = lake_boundary, SP.in = TRUE)
+
+# calculate the space use area for the 50% and 95% home range contours.
+# level = 0.95 gives 95% confidence limits on range contours.
+# CI contours describe area uncertainty, not uncertainty in boundary location.
+
+area_summaries <- list()
+for (id in names(tracks)) {
+  area_summaries[[id]] <- data.frame()
+  for (range_level in c(0.50, 0.95)) {
+    # units = FALSE returns square metres; divide by 1e6 to report km^2.
+    area_ci <- summary(home_ranges[[id]], level.UD = range_level,
+                       level = 0.95, units = FALSE)$CI / 1e6
+    area_summaries[[id]] <- rbind(area_summaries[[id]], data.frame(
+      home_range_percent = 100 * range_level,
+      low_km2 = area_ci[1, "low"], estimate_km2 = area_ci[1, "est"],
+      high_km2 = area_ci[1, "high"]))
+    plot(tracks[[id]], UD = home_ranges[[id]],
+      level.UD = range_level, level = 0.95,
+     main = paste(id, 100 * range_level, "% home range with 95% CIs"))
+    points(tracks[[id]])
+  }
+  print(id)
+  print(area_summaries[[id]])
+}
+``` 
+
+### 2.2.5 Calculate areas of overlap and proximity
+```{r, home_range_overlaps}
+# 5. Compare space use and potential encounter locations -------------------
+home_range_overlap <- overlap(home_ranges)
+home_range_overlap$CI                  # Estimates and confidence intervals.
+home_range_overlap$CI[, , "est"]      # Matrix of overlap estimates.
+# Bhattacharyya overlap: 0 = no shared space, 1 = identical distributions.
+# Shared space alone does not show that fish met at the same time.
+
+encounter_locations <- cde(home_ranges)
+plot(encounter_locations, DF = "PDF", col.UD = "purple",
+     col.level = "purple", col.grid = NA,
+     main = "Potential encounter locations")
+# CDE = conditional distribution of encounters: where encounters would be
+# expected from long-term space use, conditional on an encounter occurring.
+# This map does not identify observed meetings.
+
+
+# Distances require the tracks AND fitted models, rather than home-range UDs.
+# Predictions align the fish at shared times within their overlapping records.
+fish_distances <- distances(tracks, models)
+head(fish_distances)
+plot(fish_distances$timestamp, fish_distances$est, type = 'l')
+
+``` 
+
+### 2.2.6 Export data for reuse
+```{r, home_range_exports}
+# 6. Save the analysis so you can return to it without refitting ------------
+output_dir <- "outputs/ctmm_example"
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+saveRDS(list(use_hpe = use_hpe, tracks = tracks, variograms = variograms,
+             candidate_models = candidate_models, models = models,
+             home_ranges = home_ranges, area_summaries = area_summaries,
+             overlap = home_range_overlap,
+             encounter_locations = encounter_locations,
+             distances = fish_distances),
+        file.path(output_dir, "great_lake_analysis.rds"))
+
+# Each table contains the 50% and 95% ranges and their 95% area CIs in km^2.
+for (id in names(tracks)) {
+  write.csv(area_summaries[[id]], file.path(output_dir, paste0(id, "_area.csv")),
+            row.names = FALSE)
+}
+
+```
+
+### 2.2.7 Mapping the results
+```{r leaflet map}
+# Visualise results wuith the interactive map of tracks and home ranges ---------------------
+# Run once if needed: install.packages(c("leaflet", "htmlwidgets"))
+
+
+library(leaflet)
+library(htmlwidgets)
+
+# To map a saved analysis in a fresh R session, first load ctmm and sf, then:
+# results <- readRDS("outputs/ctmm_student/great_lake_analysis.rds")
+# tracks <- results$tracks
+# home_ranges <- results$home_ranges
+# encounter_locations <- results$encounter_locations
+
+# create some unique colours for each fish
+fish_colors <- c(fish_61043 = "steelblue", fish_61065 = "tomato")
+
+# combine track points into single object
+all_track_points <- do.call(rbind, lapply(tracks, function(track) {
+  st_transform(ctmm::as.sf(track), 4326)
+}))
+
+# set boundaing box
+map_bounds <- st_bbox(all_track_points)
+
+# invoke leaflet maps
+fish_map <- leaflet(options = leafletOptions(preferCanvas = TRUE)) %>%
+  addTiles() %>%
+  fitBounds(lng1 = map_bounds[["xmin"]], lat1 = map_bounds[["ymin"]],
+            lng2 = map_bounds[["xmax"]], lat2 = map_bounds[["ymax"]])
+map_groups <- character()
+
+for (id in names(tracks)) {
+  # Leaflet needs longitude/latitude coordinates (EPSG:4326).
+  track_points <- st_transform(ctmm::as.sf(tracks[[id]]), 4326)
+  for (range_level in c(0.95, 0.50)) {
+    range_polygons <- st_transform(ctmm::as.sf(home_ranges[[id]],
+      level.UD = range_level, level = 0.95), 4326)
+    # Keep the estimate and both confidence-limit contours from ctmm.
+    is_estimate <- grepl(" est$", range_polygons$name)
+    ci_polygons <- range_polygons[!is_estimate, ]
+    ci_labels <- ifelse(grepl(" low$", ci_polygons$name), "Lower", "Upper")
+    range_group <- paste(id, paste0(100 * range_level, "% home range"))
+    ci_group <- paste(range_group, "95% CI")
+    map_groups <- c(map_groups, range_group, ci_group)
+
+    fish_map <- fish_map %>%
+      addPolygons(data = range_polygons[is_estimate, ], color = fish_colors[[id]],
+                  weight = 2, fillOpacity = 0.15,
+                  group = range_group, popup = paste(range_group, "estimate")) %>%
+      addPolygons(data = ci_polygons, color = fish_colors[[id]],
+                  weight = 1.5, fill = FALSE, dashArray = "5, 5",
+                  group = ci_group,
+                  popup = paste(range_group, paste(ci_labels, "95% area CI limit"),
+                                sep = "<br>"))
+  }
+
+  map_groups <- c(map_groups, paste(id, "track"))
+  fish_map <- fish_map %>%
+    addCircleMarkers(data = track_points, color = fish_colors[[id]],
+                     radius = 2, stroke = FALSE, fillOpacity = 0.7,
+                     group = paste(id, "track"),
+                     popup = paste(id, format(track_points$timestamp,
+                                   tz = "UTC", usetz = TRUE), sep = "<br>"))
+}
+
+# CDE combines both fish, so add its estimated 50% encounter hotspot once.
+# Transform it to longitude/latitude before handing it to Leaflet.
+encounter_polygons <- st_transform(
+  ctmm::as.sf(encounter_locations, level.UD = 0.50, level = 0.95),
+  4326
+)
+encounter_group <- "50% potential encounter hotspot"
+encounter_estimate <- encounter_polygons[grepl(" est$", encounter_polygons$name), ]
+map_groups <- c(map_groups, encounter_group)
+fish_map <- fish_map %>%
+  addPolygons(data = encounter_estimate, color = "purple", weight = 2,
+              fillColor = "purple", fillOpacity = 0.20, group = encounter_group,
+              popup = "50% potential encounter hotspot") %>%
+  hideGroup(map_groups)
+
+fish_map <- fish_map %>%
+  addLayersControl(overlayGroups = map_groups,
+                   options = layersControlOptions(collapsed = TRUE)) %>%
+  addLegend(position = "bottomright", colors = unname(fish_colors),
+            labels = names(fish_colors), title = "Fish") %>%
+  addControl("Solid: range estimate<br>Dashed: lower/upper 95% area CI limits",
+             position = "bottomleft")
+
+# Points show recorded locations. Toggle layers using the checkboxes.
+# Enable the encounter hotspot to show where the fish are most likely to meet.
+fish_map  # Displays in the RStudio Viewer.
+
+# Save a shareable HTML map; the background tiles need an internet connection.
+withr::with_dir("outputs/ctmm_example", {
+  htmlwidgets::saveWidget(fish_map, "great_lake_map.html", selfcontained = TRUE)
+})
+
+```
 
 # References
 
 - Williamson, M.J. et al. 2021. Analysing detection gaps in acoustic telemetry data to infer differential movement patterns in fish. Ecology and Evolution, pp. 1–14. doi: 10.1002/ece3.7226.
 
-- Add further references...
+- Continuous Time Movement Models - https://ctmm-initiative.github.io/ctmm/
 
 # Session info
 
@@ -643,7 +684,4 @@ Live coding!
 sessionInfo()
 ```
 
-<!--
-To render this document, run in the console:
-rmarkdown::render("ASFB_2026_analyses.Rmd", output_format = "html_document")
--->
+

@@ -61,7 +61,7 @@ And from GitHub:
    &nbsp;&nbsp;
    <img src="images/gapFinder_hex.png" alt="gapFinder" height="120">
     &nbsp;&nbsp;
-   <img src="images/Remora_hex_logo.png" alt="Remora" height="120">
+   <img src="images/remora_hex_logo.png" alt="Remora" height="120">
 </p>
 
 

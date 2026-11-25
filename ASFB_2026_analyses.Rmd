@@ -24,8 +24,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 
 You will need to install the following packages from CRAN:
 ```{r, eval = FALSE}
-install.packages(c("patchwork", "dplyr", "tidyr", "suncalc", "remotes",
-  "tidyverse", "classInt", "data.table", "ctmm", "sp", "sf", "leaflet", "htmlwidgets))
+install.packages(c("patchwork", "dplyr", "tidyr", "suncalc", "remotes", "ranger", "classInt", "tidyverse", "classInt", "data.table", "ctmm", "sp", "sf", "leaflet", "htmlwidgets"))
 
 ```
 <br>
@@ -100,6 +99,8 @@ library(patchwork)
 library(dplyr)
 library(tidyr)
 library(suncalc)
+library(ranger)
+library(classInt)
 ```
 
 ### Load receiver logs
